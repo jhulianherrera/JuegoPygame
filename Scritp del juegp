@@ -1,0 +1,207 @@
+import pygame
+import random
+
+ANCHO = 800
+ALTO = 600
+
+NEGRO = (0, 0, 0)
+BLANCO = (255, 255, 255)
+
+pygame.init()
+
+ventana = pygame.display.set_mode((ANCHO, ALTO))
+pygame.display.set_caption("Esquivar Objetos")
+
+class Jugador(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((50, 50))
+        self.image.fill(BLANCO)
+        self.rect = self.image.get_rect()
+        self.rect.centerx = ANCHO // 2
+        self.rect.bottom = ALTO - 10
+        self.velocidad_x = 0
+
+    def update(self):
+        self.velocidad_x = 0
+        teclas = pygame.key.get_pressed()
+        if teclas[pygame.K_LEFT]:
+            self.velocidad_x = -5
+        if teclas[pygame.K_RIGHT]:
+            self.velocidad_x = 5
+        self.rect.x += self.velocidad_x
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > ANCHO:
+            self.rect.right = ANCHO
+
+class Obstaculo(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((50, 50))
+        self.image.fill((255, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.x = random.randint(0, ANCHO - self.rect.width)
+        self.rect.y = random.randint(-500, -50)
+        self.velocidad_y = random.randint(1, 4)
+
+    def update(self):
+        self.rect.y += self.velocidad_y
+        if self.rect.top > ALTO:
+            self.rect.x = random.randint(0, ANCHO - self.rect.width)
+            self.rect.y = random.randint(-500, -50)
+            self.velocidad_y = random.randint(1, 4)
+
+class Menu:
+    def __init__(self):
+        self.nombre_jugador = None
+
+    def obtener_nombre_jugador(self):
+        cuadro_texto = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 - 25, 200, 50)
+        fuente = pygame.font.Font(None, 36)
+        texto = ""
+        while True:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                elif evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_RETURN:
+                        self.nombre_jugador = texto
+                        return
+                    elif evento.key == pygame.K_BACKSPACE:
+                        texto = texto[:-1]
+                    else:
+                        texto += evento.unicode
+
+            ventana.fill(NEGRO)
+            pygame.draw.rect(ventana, BLANCO, cuadro_texto, 2)
+
+            superficie_nombre = fuente.render("Ingresa tu nombre:", True, BLANCO)
+            rect_nombre = superficie_nombre.get_rect(midtop=(ANCHO // 2, ALTO // 2 - 50))
+            ventana.blit(superficie_nombre, rect_nombre)
+
+            superficie_texto = fuente.render(texto, True, BLANCO)
+            rect_texto = superficie_texto.get_rect(center=cuadro_texto.center)
+            ventana.blit(superficie_texto, rect_texto)
+
+            pygame.display.flip()
+
+class Juego:
+    def __init__(self, nombre_jugador):
+        self.en_ejecucion = True
+        self.puntaje = 0
+        self.tiempo_inicio = pygame.time.get_ticks()
+        self.nombre_jugador = nombre_jugador
+
+        # Crear grupos de sprites
+        self.todos_los_sprites = pygame.sprite.Group()
+        self.obstaculos = pygame.sprite.Group()
+
+        # Crear jugador
+        self.jugador = Jugador()
+        self.todos_los_sprites.add(self.jugador)
+
+        # Crear obstáculos
+        for _ in range(10):
+            obstaculo = Obstaculo()
+            self.todos_los_sprites.add(obstaculo)
+            self.obstaculos.add(obstaculo)
+
+    def procesar_eventos(self):
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                self.en_ejecucion = False
+
+    def actualizar(self):
+        self.todos_los_sprites.update()
+
+        if pygame.sprite.spritecollide(self.jugador, self.obstaculos, True):
+            self.fin_juego()
+
+        while len(self.obstaculos) < 10:
+            obstaculo = Obstaculo()
+            self.todos_los_sprites.add(obstaculo)
+            self.obstaculos.add(obstaculo)
+
+    def dibujar(self):
+        ventana.fill(NEGRO)
+        self.todos_los_sprites.draw(ventana)
+
+        fuente = pygame.font.Font(None, 36)
+        texto = fuente.render(f"Puntaje: {self.puntaje}", True, BLANCO)
+        ventana.blit(texto, (10, 10))
+
+        pygame.display.flip()
+
+    def fin_juego(self):
+        ventana.fill(NEGRO)
+        fuente = pygame.font.Font(None, 72)
+        texto = fuente.render("Fin del Juego", True, BLANCO)
+        rect_texto = texto.get_rect(center=(ANCHO // 2, ALTO // 2 - 50))
+        ventana.blit(texto, rect_texto)
+
+        fuente = pygame.font.Font(None, 36)
+        texto_puntaje = fuente.render(f"Puntaje: {self.puntaje}", True, BLANCO)
+        rect_puntaje = texto_puntaje.get_rect(center=(ANCHO // 2, ALTO // 2 + 50))
+        ventana.blit(texto_puntaje, rect_puntaje)
+
+        texto_reintentar = fuente.render("Presiona R para reintentar", True, BLANCO)
+        rect_reintentar = texto_reintentar.get_rect(center=(ANCHO // 2, ALTO // 2 + 100))
+        ventana.blit(texto_reintentar, rect_reintentar)
+
+        texto_salir = fuente.render("Presiona ESC para salir", True, BLANCO)
+        rect_salir = texto_salir.get_rect(center=(ANCHO // 2, ALTO // 2 + 150))
+        ventana.blit(texto_salir, rect_salir)
+
+        pygame.display.flip()
+
+        while True:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                elif evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_r:
+                        self.reiniciar_juego()
+                        return
+                    elif evento.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        return
+
+    def reiniciar_juego(self):
+        self.puntaje = 0
+        self.tiempo_inicio = pygame.time.get_ticks()
+
+        self.jugador.rect.centerx = ANCHO // 2
+        self.jugador.rect.bottom = ALTO - 10
+
+        for obstaculo in self.obstaculos:
+            obstaculo.kill()
+
+        for _ in range(10):
+            obstaculo = Obstaculo()
+            self.todos_los_sprites.add(obstaculo)
+            self.obstaculos.add(obstaculo)
+
+    def ejecutar(self):
+        reloj = pygame.time.Clock()
+
+        while self.en_ejecucion:
+            reloj.tick(60)
+
+            self.procesar_eventos()
+
+            tiempo_transcurrido = pygame.time.get_ticks() - self.tiempo_inicio
+            self.puntaje = tiempo_transcurrido // 1000
+
+            self.actualizar()
+            self.dibujar()
+
+        pygame.quit()
+
+menu = Menu()
+menu.obtener_nombre_jugador()
+
+juego = Juego(menu.nombre_jugador)
+juego.ejecutar()
